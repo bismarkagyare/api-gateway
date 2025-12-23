@@ -1,3 +1,6 @@
+using Gateway.Api.Services.Implementations;
+using Gateway.Api.Services.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -7,6 +10,8 @@ builder.Services.AddOpenApi();
 // Register MVC controllers so attribute-routed controllers are discovered
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+
+builder.Services.AddSingleton<IProxyService, ProxyService>();
 
 var app = builder.Build();
 

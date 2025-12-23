@@ -1,29 +1,21 @@
 using System.Net.Http;
+using Gateway.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("proxy")]
 public class ProxyController : ControllerBase
 {
-    private readonly HttpClient _httpClient;
+    private readonly IProxyService _proxyService;
 
-    public ProxyController(HttpClient httpClient)
+    public ProxyController(IProxyService proxyService)
     {
-        _httpClient = httpClient;
+        _proxyService = proxyService;
     }
 
     [HttpGet("products")]
-    public async Task<IActionResult> GetProducts()
+    public async Task Forward()
     {
-        var downstreamUrl = "http://localhost:5099/products";
-
-        var response = await _httpClient.GetAsync(downstreamUrl);
-
-        var content = await response.Content.ReadAsStringAsync();
-
-        return Content(
-            content,
-            response.Content.Headers.ContentType?.ToString() ?? "application/json"
-        );
+        await _proxyService.ForwardAsync(HttpContext);
     }
 }
