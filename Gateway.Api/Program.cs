@@ -1,3 +1,4 @@
+using Gateway.Api.Middleware;
 using Gateway.Api.Services.Implementations;
 using Gateway.Api.Services.Interfaces;
 
@@ -21,6 +22,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseHttpsRedirection();
 
 // Map attribute-routed controllers (e.g. HealthController)
