@@ -1,3 +1,4 @@
+using Gateway.Api.Configuration;
 using Gateway.Api.Models;
 using Gateway.Api.Services.Interfaces;
 using StackExchange.Redis;
@@ -8,13 +9,16 @@ public class RedisRateLimitService : IRateLimitService
 {
     private readonly IDatabase _database;
 
-    private const int MaxRequests = 5;
+    private readonly RateLimitOptions _options;
 
-    private static readonly TimeSpan WindowDuration = TimeSpan.FromMinutes(1);
+    //private const int MaxRequests = 5;
 
-    public RedisRateLimitService(IConnectionMultiplexer redis)
+    //private static readonly TimeSpan WindowDuration = TimeSpan.FromMinutes(1);
+
+    public RedisRateLimitService(IConnectionMultiplexer redis, RateLimitOptions options)
     {
         _database = redis.GetDatabase();
+        _options = options;
     }
 
     public RateLimitResult Evaluate(string apiKey)
@@ -25,21 +29,21 @@ public class RedisRateLimitService : IRateLimitService
 
         if (requestCount == 1)
         {
-            _database.KeyExpire(redisKey, WindowDuration);
+            _database.KeyExpire(redisKey, TimeSpan.FromMinutes(_options.WindowSeconds));
         }
 
         var ttl = _database.KeyTimeToLive(redisKey);
 
-        var remaining = MaxRequests - (int)requestCount;
+        var remaining = _options.MaxRequests - (int)requestCount;
 
         var resetTime = ttl.HasValue
             ? DateTime.UtcNow.Add(ttl.Value)
-            : DateTime.UtcNow.Add(WindowDuration);
+            : DateTime.UtcNow.AddSeconds(_options.WindowSeconds);
 
         return new RateLimitResult
         {
-            IsAllowed = requestCount <= MaxRequests,
-            Limit = MaxRequests,
+            IsAllowed = requestCount <= _options.MaxRequests,
+            Limit = _options.MaxRequests,
             Remaining = Math.Max(remaining, 0),
             ResetTime = resetTime,
         };
