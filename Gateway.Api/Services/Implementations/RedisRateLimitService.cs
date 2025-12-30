@@ -10,19 +10,18 @@ public class RedisRateLimitService : IRateLimitService
 {
     private readonly IDatabase _database;
 
-    private readonly RateLimitOptions _options;
+    //private readonly RateLimitOptions _options;
 
     //private const int MaxRequests = 5;
 
     //private static readonly TimeSpan WindowDuration = TimeSpan.FromMinutes(1);
 
-    public RedisRateLimitService(IConnectionMultiplexer redis, RateLimitOptions options)
+    public RedisRateLimitService(IConnectionMultiplexer redis)
     {
         _database = redis.GetDatabase();
-        _options = options;
     }
 
-    public RateLimitResult Evaluate(string apiKey)
+    public RateLimitResult Evaluate(string apiKey, int maxRequests, int windowSeconds)
     {
         var redisKey = RedisKeys.RateLimit(apiKey);
 
@@ -30,21 +29,21 @@ public class RedisRateLimitService : IRateLimitService
 
         if (requestCount == 1)
         {
-            _database.KeyExpire(redisKey, TimeSpan.FromMinutes(_options.WindowSeconds));
+            _database.KeyExpire(redisKey, TimeSpan.FromMinutes(windowSeconds));
         }
 
         var ttl = _database.KeyTimeToLive(redisKey);
 
-        var remaining = _options.MaxRequests - (int)requestCount;
+        var remaining = maxRequests - (int)requestCount;
 
         var resetTime = ttl.HasValue
             ? DateTime.UtcNow.Add(ttl.Value)
-            : DateTime.UtcNow.AddSeconds(_options.WindowSeconds);
+            : DateTime.UtcNow.AddSeconds(windowSeconds);
 
         return new RateLimitResult
         {
-            IsAllowed = requestCount <= _options.MaxRequests,
-            Limit = _options.MaxRequests,
+            IsAllowed = requestCount <= maxRequests,
+            Limit = maxRequests,
             Remaining = Math.Max(remaining, 0),
             ResetTime = resetTime,
         };
