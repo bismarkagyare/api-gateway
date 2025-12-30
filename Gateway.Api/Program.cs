@@ -17,6 +17,7 @@ builder.Services.AddHttpClient();
 
 builder.Services.AddSingleton<IProxyService, ProxyService>();
 builder.Services.AddSingleton<IRateLimitService, RedisRateLimitService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 
 // Register Redis connection
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
