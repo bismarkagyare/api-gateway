@@ -15,15 +15,28 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
 
+builder.Services.AddHealthChecks()
+    .AddCheck<RedisHealthCheck>("redis")
+    .AddCheck<DownstreamHealthCheck>("downstream");
+
 builder.Services.AddSingleton<IProxyService, ProxyService>();
 builder.Services.AddSingleton<IRateLimitService, RedisRateLimitService>();
-builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+// ApiKeyService is stateless (wraps the singleton Redis multiplexer) and is
+// constructor-injected into middleware, which is resolved from the root
+// provider — so it must be a singleton, not scoped.
+builder.Services.AddSingleton<IApiKeyService, ApiKeyService>();
 
-// Register Redis connection
+// Register Redis connection. AbortOnConnectFail=false lets the gateway start and
+// retry in the background even if Redis is temporarily unreachable; health checks
+// report the degraded state instead of the process crashing on startup.
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<RedisOptions>>().Value;
-    return ConnectionMultiplexer.Connect(options.ConnectionString);
+
+    var redisConfig = ConfigurationOptions.Parse(options.ConnectionString);
+    redisConfig.AbortOnConnectFail = false;
+
+    return ConnectionMultiplexer.Connect(redisConfig);
 });
 
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimit"));
@@ -40,11 +53,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseMiddleware<RateLimitingMiddleware>();
 app.UseHttpsRedirection();
 
-// Map attribute-routed controllers (e.g. HealthController)
+// Map attribute-routed controllers (e.g. ProxyController)
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
