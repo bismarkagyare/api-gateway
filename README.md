@@ -45,7 +45,7 @@ All responses include:
 
 ## Prerequisites
 
-- .NET 8+ SDK
+- .NET 10 SDK (both projects target `net10.0`)
 - Redis server
 
 ## Getting Started
@@ -70,7 +70,7 @@ Edit `Gateway.Api/appsettings.json`:
     "MaxRequests": 100
   },
   "Downstream": {
-    "BaseUrl": "http://localhost:5099"
+    "ProductsServiceUrl": "http://localhost:5099/products"
   }
 }
 ```
