@@ -8,13 +8,11 @@ public class InMemoryRateLimitService : IRateLimitService
 {
     private readonly ConcurrentDictionary<string, RateLimitEntry> _rateLimits = new();
 
-    private const int MaxRequests = 5;
-
-    private static readonly TimeSpan WindowDuration = TimeSpan.FromMinutes(1);
-
-    public RateLimitResult Evaluate(string apiKey)
+    public RateLimitResult Evaluate(string apiKey, int maxRequests, int windowSeconds)
     {
         var now = DateTime.UtcNow;
+
+        var windowDuration = TimeSpan.FromSeconds(windowSeconds);
 
         var entry = _rateLimits.GetOrAdd(
             apiKey,
@@ -22,7 +20,7 @@ public class InMemoryRateLimitService : IRateLimitService
         );
 
         //check if the current window has expired and reset
-        if (now - entry.WindowStart > WindowDuration)
+        if (now - entry.WindowStart > windowDuration)
         {
             entry.WindowStart = now;
             entry.RequestCount = 0;
@@ -30,14 +28,14 @@ public class InMemoryRateLimitService : IRateLimitService
 
         entry.RequestCount++;
 
-        var remaining = MaxRequests - entry.RequestCount;
+        var remaining = maxRequests - entry.RequestCount;
 
-        var resetTime = entry.WindowStart.Add(WindowDuration);
+        var resetTime = entry.WindowStart.Add(windowDuration);
 
         return new RateLimitResult
         {
-            IsAllowed = entry.RequestCount <= MaxRequests,
-            Limit = MaxRequests,
+            IsAllowed = entry.RequestCount <= maxRequests,
+            Limit = maxRequests,
             Remaining = Math.Max(remaining, 0),
             ResetTime = resetTime,
         };
