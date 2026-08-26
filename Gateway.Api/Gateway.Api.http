@@ -1,6 +1,21 @@
 @Gateway.Api_HostAddress = http://localhost:5136
 
-GET {{Gateway.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+GET {{Gateway.Api_HostAddress}}/health
+X-API-Key: test-key-1
+
+###
+
+GET {{Gateway.Api_HostAddress}}/proxy/products
+X-API-Key: test-key-1
+
+###
+
+GET {{Gateway.Api_HostAddress}}/proxy/orders
+X-API-Key: test-key-1
+
+###
+
+GET {{Gateway.Api_HostAddress}}/proxy/unknown-route
+X-API-Key: test-key-1
 
 ###
