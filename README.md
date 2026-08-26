@@ -13,10 +13,13 @@ A lightweight API gateway that authenticates requests using API keys, applies pe
 
 ## Architecture
 
-The gateway consists of two ASP.NET Core applications:
+The gateway consists of three ASP.NET Core applications:
 
 - **Gateway.Api** – The main API gateway with authentication, rate limiting, and request proxying
 - **Downstream.MockApi** – Mock downstream service that serves product data
+- **Downstream.OrdersApi** – Mock downstream service that serves order data
+
+Requests are routed to downstream services by path prefix (`/proxy/products` → MockApi, `/proxy/orders` → OrdersApi) using the route table in the `Downstream:Routes` configuration section. The matched route's target receives the forwarded path, query string, method, and headers.
 
 ### Request Pipeline
 
@@ -70,7 +73,10 @@ Edit `Gateway.Api/appsettings.json`:
     "MaxRequests": 100
   },
   "Downstream": {
-    "ProductsServiceUrl": "http://localhost:5099/products"
+    "Routes": [
+      { "Path": "products", "Target": "http://localhost:5099" },
+      { "Path": "orders", "Target": "http://localhost:5101" }
+    ]
   }
 }
 ```
@@ -93,25 +99,23 @@ dotnet run --project Gateway.Api
 
 The gateway starts on `http://localhost:5136`.
 
-### 5. (Optional) Run Downstream.MockApi
+### 5. (Optional) Run Downstream Services
 
 ```bash
 dotnet run --project Downstream.MockApi
+dotnet run --project Downstream.OrdersApi
 ```
 
-The mock API runs on `http://localhost:5099`.
+The mocks run on `http://localhost:5099` (products) and `http://localhost:5101` (orders).
 
 ## Testing
 
 ### Health Check
 
-```bash
-curl http://localhost:5136/health
+```ba-H "X-API-Key: test-key-1" http://localhost:5136/health
 ```
 
-**Response:**
-```json
-{"status":"healthy"}
+The gateway probes Redis and every configured downstream route, so the health endpoint requires a valid API key.tatus":"healthy"}
 ```
 
 ### Valid Request (with API key)
