@@ -1,4 +1,3 @@
-using System.Net.Http;
 using Gateway.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,9 +12,10 @@ public class ProxyController : ControllerBase
         _proxyService = proxyService;
     }
 
-    [HttpGet("products")]
-    public async Task Forward()
+    // Catch-all that captures the path after /proxy and forwards any HTTP verb.
+    [Route("{**path}")]
+    public async Task Forward(string path)
     {
-        await _proxyService.ForwardAsync(HttpContext);
+        await _proxyService.ForwardAsync(HttpContext, path);
     }
 }
