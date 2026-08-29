@@ -1,3 +1,5 @@
+using Gateway.Api.Common.Constants;
+using Gateway.Api.Common.Errors;
 using Gateway.Api.Configuration;
 using Gateway.Api.Services.Interfaces;
 using Microsoft.Extensions.Options;
@@ -28,26 +30,27 @@ public class ProxyService : IProxyService
         _options = options.Value;
     }
 
-    public async Task ForwardAsync(HttpContext context)
+    public async Task ForwardAsync(HttpContext context, string path)
     {
-        // Build the downstream URI from configuration, appending the incoming query string.
-        var uriBuilder = new UriBuilder(_options.ProductsServiceUrl);
-        if (context.Request.QueryString.HasValue)
+        var route = ResolveRoute(path);
+
+        if (route is null)
         {
-            var incomingQuery = context.Request.QueryString.Value.TrimStart('?');
-            uriBuilder.Query = string.IsNullOrEmpty(uriBuilder.Query)
-                ? incomingQuery
-                : $"{uriBuilder.Query.TrimStart('?')}&{incomingQuery}";
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await context.Response.WriteAsync(ErrorMessages.RouteNotFound);
+            return;
         }
 
-        // Forward the incoming method, body, and headers.
+        // Build the downstream URI from the route target, appending the incoming
+        // path (after /proxy) and query string.
         var request = new HttpRequestMessage
         {
             Method = new HttpMethod(context.Request.Method),
-            RequestUri = uriBuilder.Uri,
+            RequestUri = BuildDownstreamUri(route, path, context.Request.QueryString),
             Content = CreateContent(context.Request),
         };
 
+        // Forward relevant request headers.
         foreach (var header in context.Request.Headers)
         {
             if (HopByHopHeaders.Contains(header.Key))
@@ -83,6 +86,37 @@ public class ProxyService : IProxyService
         }
 
         await response.Content.CopyToAsync(context.Response.Body);
+    }
+
+    private DownstreamRoute? ResolveRoute(string path)
+    {
+        // Match the longest configured route whose path is a prefix boundary of
+        // the incoming path (e.g. "products" matches "products/123", not "productx").
+        return _options.Routes
+            .Where(route =>
+                path.Equals(route.Path, StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith(route.Path + "/", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(route => route.Path.Length)
+            .FirstOrDefault();
+    }
+
+    private static Uri BuildDownstreamUri(DownstreamRoute route, string path, QueryString queryString)
+    {
+        var uriBuilder = new UriBuilder(route.Target);
+
+        var basePath = uriBuilder.Path.TrimEnd('/');
+        var forwardedPath = "/" + path.TrimStart('/');
+        uriBuilder.Path = basePath + forwardedPath;
+
+        if (queryString.HasValue)
+        {
+            var incomingQuery = queryString.Value.TrimStart('?');
+            uriBuilder.Query = string.IsNullOrEmpty(uriBuilder.Query)
+                ? incomingQuery
+                : $"{uriBuilder.Query.TrimStart('?')}&{incomingQuery}";
+        }
+
+        return uriBuilder.Uri;
     }
 
     private static HttpContent? CreateContent(HttpRequest request)
