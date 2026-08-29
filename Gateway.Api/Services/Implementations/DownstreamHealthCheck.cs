@@ -8,29 +8,45 @@ public class DownstreamHealthCheck : IHealthCheck
 {
     private readonly HttpClient _httpClient;
 
-    private readonly string _downstreamUrl;
+    private readonly List<DownstreamRoute> _routes;
 
     public DownstreamHealthCheck(HttpClient httpClient, IOptions<DownstreamOptions> options)
     {
         _httpClient = httpClient;
-        _downstreamUrl = options.Value.ProductsServiceUrl;
+        _routes = options.Value.Routes;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        try
+        if (_routes.Count == 0)
         {
-            var response = await _httpClient.GetAsync(_downstreamUrl, cancellationToken);
+            return HealthCheckResult.Unhealthy("No downstream routes configured");
+        }
 
-            return response.IsSuccessStatusCode
-                ? HealthCheckResult.Healthy($"Downstream responded {(int)response.StatusCode}")
-                : HealthCheckResult.Degraded($"Downstream responded {(int)response.StatusCode}");
-        }
-        catch (Exception ex)
+        var failures = new List<string>();
+
+        foreach (var route in _routes)
         {
-            return HealthCheckResult.Unhealthy("Downstream is unreachable", ex);
+            var healthUrl = $"{route.Target.TrimEnd('/')}/{route.Path.TrimStart('/')}";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(healthUrl, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    failures.Add($"{route.Path}: HTTP {(int)response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{route.Path}: {ex.Message}");
+            }
         }
+
+        return failures.Count == 0
+            ? HealthCheckResult.Healthy($"All {_routes.Count} downstream routes reachable")
+            : HealthCheckResult.Unhealthy(string.Join("; ", failures));
     }
 }
