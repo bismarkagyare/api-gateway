@@ -20,7 +20,7 @@ public class RateLimitingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         if (
-            !context.Items.TryGetValue("ApiKeyMetadata", out var metadataObj)
+            !context.Items.TryGetValue(ContextKeys.ApiKeyMetadata, out var metadataObj)
             || metadataObj is not ApiKeyMetadata metadata
         )
         {
