@@ -10,8 +10,6 @@ public class ApiKeyAuthenticationMiddleware
 
     private readonly IApiKeyService _apiKeyService;
 
-    //private const string validApiKey = "test-api-key";
-
     public ApiKeyAuthenticationMiddleware(RequestDelegate next, IApiKeyService apiKeyService)
     {
         _next = next;
@@ -52,7 +50,7 @@ public class ApiKeyAuthenticationMiddleware
             return;
         }
 
-        context.Items["ApiKeyMetadata"] = metadata;
+        context.Items[ContextKeys.ApiKeyMetadata] = metadata;
 
         await _next(context);
     }
