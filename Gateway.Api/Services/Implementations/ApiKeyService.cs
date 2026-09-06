@@ -1,3 +1,4 @@
+using Gateway.Api.Common.Constants;
 using Gateway.Api.Models;
 using Gateway.Api.Services.Interfaces;
 using StackExchange.Redis;
@@ -15,7 +16,7 @@ public class ApiKeyService : IApiKeyService
 
     public async Task<ApiKeyMetadata?> GetApiKeyMetadataAsync(string apiKey)
     {
-        var redisKey = $"apikey:meta:{apiKey}";
+        var redisKey = RedisKeys.ApiKeyMetadata(apiKey);
 
         var hashEntries = await _redisDatabase.HashGetAllAsync(redisKey);
 
